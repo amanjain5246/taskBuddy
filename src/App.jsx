@@ -1,9 +1,34 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, Check, Save, Download } from 'lucide-react';
 
 export default function TaskBuddy() {
   const [tasks, setTasks] = useState([]);
   const [inputValue, setInputValue] = useState('');
+  const [lastSaved, setLastSaved] = useState(null);
+
+  // Load tasks from localStorage on component mount
+  useEffect(() => {
+    const savedTasks = localStorage.getItem('taskBuddy-tasks');
+    if (savedTasks) {
+      try {
+        const parsedTasks = JSON.parse(savedTasks);
+        setTasks(parsedTasks);
+        setLastSaved(localStorage.getItem('taskBuddy-lastSaved'));
+      } catch (error) {
+        console.error('Error loading tasks:', error);
+      }
+    }
+  }, []);
+
+  // Save tasks to localStorage whenever tasks change
+  useEffect(() => {
+    if (tasks.length > 0) {
+      localStorage.setItem('taskBuddy-tasks', JSON.stringify(tasks));
+      const now = new Date().toLocaleString();
+      localStorage.setItem('taskBuddy-lastSaved', now);
+      setLastSaved(now);
+    }
+  }, [tasks]);
 
   const addTask = () => {
     if (inputValue.trim() !== '') {
@@ -34,6 +59,26 @@ export default function TaskBuddy() {
     }
   };
 
+  const clearAllTasks = () => {
+    if (window.confirm('Are you sure you want to clear all tasks? This cannot be undone.')) {
+      setTasks([]);
+      localStorage.removeItem('taskBuddy-tasks');
+      localStorage.removeItem('taskBuddy-lastSaved');
+      setLastSaved(null);
+    }
+  };
+
+  const exportTasks = () => {
+    const dataStr = JSON.stringify(tasks, null, 2);
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `taskbuddy-backup-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-2xl mx-auto">
@@ -45,7 +90,7 @@ export default function TaskBuddy() {
 
         {/* Add Task Section */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <div className="flex gap-3">
+          <div className="flex gap-3 mb-4">
             <input
               type="text"
               value={inputValue}
@@ -62,6 +107,32 @@ export default function TaskBuddy() {
               Add Task
             </button>
           </div>
+          
+          {/* Data Management Buttons */}
+          {tasks.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={exportTasks}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2 text-sm"
+              >
+                <Download size={16} />
+                Export Tasks
+              </button>
+              <button
+                onClick={clearAllTasks}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2 text-sm"
+              >
+                <Trash2 size={16} />
+                Clear All
+              </button>
+              {lastSaved && (
+                <div className="flex items-center gap-2 text-sm text-gray-500 ml-auto">
+                  <Save size={16} />
+                  Last saved: {lastSaved}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Tasks List */}
